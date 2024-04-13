@@ -39,7 +39,6 @@
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
 #include <storage/mbr_gpt.h>
-#include <storage/sd.h>
 #include <gfx_utils.h>
 
 #define EFSPRINTF(text, ...) print_error(); gfx_printf("%k"text"%k\n", 0xFFFFFF00, 0xFFFFFFFF);
@@ -5880,7 +5879,7 @@ FRESULT f_mkfs (
 	stat = disk_initialize(pdrv);
 	if (stat & STA_NOINIT) return FR_NOT_READY;
 	if (stat & STA_PROTECT) return FR_WRITE_PROTECTED;
-	if (disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_blk) != RES_OK || !sz_blk || sz_blk > 131072 || (sz_blk & (sz_blk - 1))) sz_blk = 2048;	/* Erase block to align data area. 1MB minimum */
+	if (disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_blk) != RES_OK || !sz_blk || sz_blk > 32768 || (sz_blk & (sz_blk - 1))) sz_blk = 1;	/* Erase block to align data area */
 #if FF_MAX_SS != FF_MIN_SS		/* Get sector size of the medium if variable sector size cfg. */
 	if (disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK) return FR_DISK_ERR;
 	if (ss > FF_MAX_SS || ss < FF_MIN_SS || (ss & (ss - 1))) return FR_DISK_ERR;
@@ -5916,7 +5915,7 @@ FRESULT f_mkfs (
 	} else {
 		/* Create a single-partition in this function */
 		if (disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_vol) != RES_OK) LEAVE_MKFS(FR_DISK_ERR);
-		b_vol = (opt & FM_SFD) ? 0 : sz_blk;		/* Volume start sector */
+		b_vol = (opt & FM_SFD) ? 0 : 32768;		/* Volume start sector. Align to 16MB */
 		if (sz_vol < b_vol) LEAVE_MKFS(FR_MKFS_ABORTED);
 		sz_vol -= b_vol;						/* Volume size */
 	}
@@ -6229,13 +6228,8 @@ FRESULT f_mkfs (
 			mem_set(buf, 0, ss);
 			st_dword(buf + FSI_LeadSig, 0x41615252);
 			st_dword(buf + FSI_StrucSig, 0x61417272);
-			if (opt & FM_PRF2) {
-				st_dword(buf + FSI_Free_Count, 0xFFFFFFFF);	/* Invalidate free count */
-				st_dword(buf + FSI_Nxt_Free, 0xFFFFFFFF);	/* Invalidate last allocated cluster */
-			} else {
-				st_dword(buf + FSI_Free_Count, n_clst - 1);	/* Number of free clusters */
-				st_dword(buf + FSI_Nxt_Free, 2);			/* Last allocated cluster# */
-			}
+			st_dword(buf + FSI_Free_Count, n_clst - 1);	/* Number of free clusters */
+			st_dword(buf + FSI_Nxt_Free, 2);			/* Last allocated cluster# */
 			st_word(buf + BS_55AA, 0xAA55);
 			disk_write(pdrv, buf, b_vol + 7, 1);		/* Write backup FSINFO (VBR + 7) */
 			disk_write(pdrv, buf, b_vol + 1, 1);		/* Write original FSINFO (VBR + 1) */
@@ -6244,18 +6238,11 @@ FRESULT f_mkfs (
 		/* Create PRF2SAFE info */
 		if (fmt == FS_FAT32 && opt & FM_PRF2) {
 			mem_set(buf, 0, ss);
-			st_dword(buf + 0, 0x32465250);				/* Magic PRF2 */
-			st_dword(buf + 4, 0x45464153);				/* Magic SAFE */
-			buf[16] = 0x64;									/* Record type */
-			st_dword(buf + 32, 0x03);						/* Unknown. SYSTEM: 0x3F00. USER: 0x03. Volatile. */
-			if (sz_vol < 0x1000000) {
-				st_dword(buf + 36, 21 + 1);				/* 22 Entries. */
-				st_dword(buf + 508, 0x90BB2F39);			/* Sector CRC32 */
-			} else {
-				st_dword(buf + 36, 21 + 2);				/* 23 Entries. */
-				st_dword(buf + 508, 0x5EA8AFC8);			/* Sector CRC32 */
-			}
-			disk_write(pdrv, buf, b_vol + 3, 1);		/* Write PRF2SAFE info (VBR + 3) */
+			buf[16] = 0x64;							/* Record type */
+			st_dword(buf + 32, 0x03);				/* Unknown. SYSTEM: 0x3F00. USER: 0x03. Volatile. */
+			st_dword(buf + 36, 25);					/* Entries. SYSTEM: 22. USER: 25.Static? */
+			st_dword(buf + 508, 0x517BBFE0);		/* Custom CRC32. SYSTEM: 0x6B673904. USER: 0x517BBFE0. */
+			disk_write(pdrv, buf, b_vol + 3, 1);	/* Write PRF2SAFE info (VBR + 3) */
 		}
 
 		/* Initialize FAT area */
@@ -6412,81 +6399,8 @@ FRESULT f_fdisk (
 #endif /* FF_MULTI_PARTITION */
 #endif /* FF_USE_MKFS && !FF_FS_READONLY */
 
-extern sdmmc_storage_t sd_storage;
-
-FRESULT f_fdisk_mod (
-	BYTE pdrv,			/* Physical drive number */
-	const DWORD* szt,	/* Pointer to the size table for each partitions */
-    void* work
-)
-{
-	UINT i, n, sz_cyl, tot_cyl, e_cyl;
-	BYTE s_hd, e_hd, *p, *buf = (BYTE*)work;
-	DSTATUS stat;
-	DWORD sz_disk, p_sect, b_cyl, b_sect;
-	FRESULT res;
-
-	stat = disk_initialize(pdrv);
-	if (stat & STA_NOINIT) return FR_NOT_READY;
-	if (stat & STA_PROTECT) return FR_WRITE_PROTECTED;
-	sz_disk = sd_storage.csd.capacity;
-
-	if (!buf) return FR_NOT_ENOUGH_CORE;
-
-	/* Determine the CHS without any consideration of the drive geometry */
-	for (n = 16; n < 256 && sz_disk / n / 63 > 1024; n *= 2) ;
-	if (n == 256) n--;
-	e_hd = (BYTE)(n - 1);
-	sz_cyl = 63 * n;
-	tot_cyl = sz_disk / sz_cyl;
-
-	/* Create partition table */
-	mem_set(buf, 0, 0x10000);
-	p = buf + MBR_Table; b_cyl = 0, b_sect = 0;
-	for (i = 0; i < 4; i++, p += SZ_PTE) {
-		p_sect = szt[i]; /* Number of sectors */
-
-		if (p_sect == 0)
-			continue;
-
-		if (i == 0) {	/* Exclude first 16MiB of sd */
-			s_hd = 1;
-			b_sect += 32768; p_sect -= 32768;
-		}
-		else
-			s_hd = 0;
-
-		b_cyl = b_sect / sz_cyl;
-		e_cyl = ((b_sect + p_sect) / sz_cyl) - 1;	/* End cylinder */
-
-		if (e_cyl >= tot_cyl)
-			LEAVE_MKFS(FR_INVALID_PARAMETER);
 
 
-		/* Set partition table */
-		p[1] = s_hd;						/* Start head */
-		p[2] = (BYTE)(((b_cyl >> 2) & 0xC0) | 1);	/* Start sector */
-		p[3] = (BYTE)b_cyl;					/* Start cylinder */
-		p[4] = 0x07;						/* System type (temporary setting) */
-		p[5] = e_hd;						/* End head */
-		p[6] = (BYTE)(((e_cyl >> 2) & 0xC0) | 63);	/* End sector */
-		p[7] = (BYTE)e_cyl;					/* End cylinder */
-		st_dword(p + 8, b_sect);			/* Start sector in LBA */
-		st_dword(p + 12, p_sect);			/* Number of sectors */
-		/* Next partition */
-
-		for (u32 cursect = 0; cursect < 512; cursect++){
-			disk_write(pdrv, buf + 0x4000, b_sect + (64 * cursect), 64);
-		}
-
-		b_sect += p_sect;
-	}
-	st_word(p, 0xAA55);		/* MBR signature (always at offset 510) */
-
-	/* Write it to the MBR */
-	res = (disk_write(pdrv, buf, 0, 1) == RES_OK && disk_ioctl(pdrv, CTRL_SYNC, 0) == RES_OK) ? FR_OK : FR_DISK_ERR;
-	LEAVE_MKFS(res);
-}
 
 #if FF_USE_STRFUNC
 #if FF_USE_LFN && FF_LFN_UNICODE && (FF_STRF_ENCODE < 0 || FF_STRF_ENCODE > 3)

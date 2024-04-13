@@ -22,6 +22,8 @@
 #include "elfarch.h"
 #include "elf.h"
 
+#include <utils/types.h>
+
 #ifdef DEBUG
 #include <gfx_utils.h>
 #define EL_DEBUG(format, ...) \
@@ -98,7 +100,7 @@ el_status el_load(el_ctx *ctx, el_alloc_cb alloccb);
  * If the end of the phdrs table was reached, *i is set to -1 and the contents
  * of *phdr are undefined
  */
-el_status el_findphdr(el_ctx *ctx, Elf_Phdr *phdr, u32 type, unsigned *i);
+el_status el_findphdr(el_ctx *ctx, Elf_Phdr *phdr, uint32_t type, unsigned *i);
 
 /* Relocate the loaded executable */
 el_status el_relocate(el_ctx *ctx);
@@ -106,7 +108,7 @@ el_status el_relocate(el_ctx *ctx);
 /* find a dynamic table entry
  * returns the entry on success, dyn->d_tag = DT_NULL on failure
  */
-el_status el_finddyn(el_ctx *ctx, Elf_Dyn *dyn, u32 type);
+el_status el_finddyn(el_ctx *ctx, Elf_Dyn *dyn, uint32_t type);
 
 typedef struct
 {
@@ -120,6 +122,6 @@ typedef struct
  * pass DT_REL or DT_RELA for type
  * sets ri->entrysize = 0 if not found
  */
-el_status el_findrelocs(el_ctx *ctx, el_relocinfo *ri, u32 type);
+el_status el_findrelocs(el_ctx *ctx, el_relocinfo *ri, uint32_t type);
 
 #endif

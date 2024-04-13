@@ -22,7 +22,7 @@
 #include <module.h>
 #include <mem/heap.h>
 #include <power/max7762x.h>
-#include <storage/sd.h>
+#include <storage/nx_sd.h>
 #include <utils/types.h>
 
 #include <gfx_utils.h>
@@ -74,16 +74,19 @@ uintptr_t ianos_loader(char *path, elfType_t type, void *moduleConfig)
 	el_ctx ctx;
 	uintptr_t epaddr = 0;
 
+	if (!sd_mount())
+		goto elfLoadFinalOut;
+
 	// Read library.
 	fileBuf = sd_file_read(path, NULL);
 
 	if (!fileBuf)
-		goto out;
+		goto elfLoadFinalOut;
 
 	ctx.pread = _ianos_read_cb;
 
 	if (el_init(&ctx))
-		goto out;
+		goto elfLoadFinalOut;
 
 	// Set our relocated library's buffer.
 	switch (type & 0xFFFF)
@@ -97,15 +100,15 @@ uintptr_t ianos_loader(char *path, elfType_t type, void *moduleConfig)
 	}
 
 	if (!elfBuf)
-		goto out;
+		goto elfLoadFinalOut;
 
 	// Load and relocate library.
 	ctx.base_load_vaddr = ctx.base_load_paddr = (uintptr_t)elfBuf;
 	if (el_load(&ctx, _ianos_alloc_cb))
-		goto out_free;
+		goto elfFreeOut;
 
 	if (el_relocate(&ctx))
-		goto out_free;
+		goto elfFreeOut;
 
 	// Launch.
 	epaddr = ctx.ehdr.e_entry + (uintptr_t)elfBuf;
@@ -113,11 +116,11 @@ uintptr_t ianos_loader(char *path, elfType_t type, void *moduleConfig)
 
 	_ianos_call_ep(ep, moduleConfig);
 
-out_free:
+elfFreeOut:
 	free(fileBuf);
 	elfBuf = NULL;
 	fileBuf = NULL;
 
-out:
+elfLoadFinalOut:
 	return epaddr;
 }

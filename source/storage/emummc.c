@@ -25,7 +25,7 @@
 #include <libs/fatfs/ff.h>
 #include <mem/heap.h>
 #include "../storage/nx_emmc.h"
-#include <storage/sd.h>
+#include <storage/nx_sd.h>
 #include <utils/list.h>
 #include <utils/types.h>
 

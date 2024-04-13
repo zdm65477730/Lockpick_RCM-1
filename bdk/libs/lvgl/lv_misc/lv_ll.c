@@ -215,12 +215,9 @@ void lv_ll_clear(lv_ll_t * ll_p)
  * @param ll_ori_p pointer to the original (old) linked list
  * @param ll_new_p pointer to the new linked list
  * @param node pointer to a node
- * @return head changed
  */
-bool lv_ll_chg_list(lv_ll_t * ll_ori_p, lv_ll_t * ll_new_p, void * node)
+void lv_ll_chg_list(lv_ll_t * ll_ori_p, lv_ll_t * ll_new_p, void * node)
 {
-    bool changed = ll_new_p->head != node;
-
     lv_ll_rem(ll_ori_p, node);
 
     /*Set node as head*/
@@ -235,8 +232,6 @@ bool lv_ll_chg_list(lv_ll_t * ll_ori_p, lv_ll_t * ll_new_p, void * node)
     if(ll_new_p->tail == NULL) {     /*If there is no tail (first node) set the tail too*/
         ll_new_p->tail = node;
     }
-
-    return changed;
 }
 
 /**

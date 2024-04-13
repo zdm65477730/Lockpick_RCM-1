@@ -1,7 +1,7 @@
 /*
  * USB Gadget HID driver for Tegra X1
  *
- * Copyright (c) 2019-2022 CTCaer
+ * Copyright (c) 2019-2020 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,8 +23,8 @@
 #include <input/joycon.h>
 #include <input/touch.h>
 #include <soc/hw_init.h>
-#include <soc/timer.h>
 #include <soc/t210.h>
+#include <utils/util.h>
 
 #include <memory_map.h>
 
@@ -56,19 +56,16 @@ typedef struct _gamepad_report_t
 
 typedef struct _jc_cal_t
 {
-// 15ms * JC_CAL_MAX_STEPS = 240 ms.
-#define JC_CAL_MAX_STEPS 16
-	u32 cl_step;
-	u32 cr_step;
-
-	u16 clx_max;
-	u16 clx_min;
-	u16 cly_max;
-	u16 cly_min;
-	u16 crx_max;
-	u16 crx_min;
-	u16 cry_max;
-	u16 cry_min;
+	bool cl_done;
+	bool cr_done;
+	u16  clx_max;
+	u16  clx_min;
+	u16  cly_max;
+	u16  cly_min;
+	u16  crx_max;
+	u16  crx_min;
+	u16  cry_max;
+	u16  cry_min;
 } jc_cal_t;
 
 static jc_cal_t jc_cal_ctx;
@@ -77,40 +74,34 @@ static usb_ops_t usb_ops;
 static bool _jc_calibration(jc_gamepad_rpt_t *jc_pad)
 {
 	// Calibrate left stick.
-	if (jc_cal_ctx.cl_step != JC_CAL_MAX_STEPS)
+	if (!jc_cal_ctx.cl_done)
 	{
 		if (jc_pad->conn_l
 			&& jc_pad->lstick_x > 0x400 && jc_pad->lstick_y > 0x400
 			&& jc_pad->lstick_x < 0xC00 && jc_pad->lstick_y < 0xC00)
 		{
-			jc_cal_ctx.cl_step++;
 			jc_cal_ctx.clx_max = jc_pad->lstick_x + 0x72;
 			jc_cal_ctx.clx_min = jc_pad->lstick_x - 0x72;
 			jc_cal_ctx.cly_max = jc_pad->lstick_y + 0x72;
 			jc_cal_ctx.cly_min = jc_pad->lstick_y - 0x72;
-
-			if (jc_cal_ctx.cl_step != JC_CAL_MAX_STEPS)
-				return false;
+			jc_cal_ctx.cl_done = true;
 		}
 		else
 			return false;
 	}
 
 	// Calibrate right stick.
-	if (jc_cal_ctx.cr_step != JC_CAL_MAX_STEPS)
+	if (!jc_cal_ctx.cr_done)
 	{
 		if (jc_pad->conn_r
 			&& jc_pad->rstick_x > 0x400 && jc_pad->rstick_y > 0x400
 			&& jc_pad->rstick_x < 0xC00 && jc_pad->rstick_y < 0xC00)
 		{
-			jc_cal_ctx.cr_step++;
 			jc_cal_ctx.crx_max = jc_pad->rstick_x + 0x72;
 			jc_cal_ctx.crx_min = jc_pad->rstick_x - 0x72;
 			jc_cal_ctx.cry_max = jc_pad->rstick_y + 0x72;
 			jc_cal_ctx.cry_min = jc_pad->rstick_y - 0x72;
-
-			if (jc_cal_ctx.cr_step != JC_CAL_MAX_STEPS)
-				return false;
+			jc_cal_ctx.cr_done = true;
 		}
 		else
 			return false;
@@ -131,7 +122,7 @@ static bool _jc_poll(gamepad_report_t *rpt)
 	if (jc_pad->l3 && jc_pad->home)
 		return true;
 
-	if (jc_cal_ctx.cl_step != JC_CAL_MAX_STEPS || jc_cal_ctx.cr_step != JC_CAL_MAX_STEPS)
+	if (!jc_cal_ctx.cl_done || !jc_cal_ctx.cr_done)
 	{
 		if (!_jc_calibration(jc_pad))
 			return false;
@@ -139,9 +130,9 @@ static bool _jc_poll(gamepad_report_t *rpt)
 
 	// Re-calibrate on disconnection.
 	if (!jc_pad->conn_l)
-		jc_cal_ctx.cl_step = 0;
+		jc_cal_ctx.cl_done = false;
 	if (!jc_pad->conn_r)
-		jc_cal_ctx.cr_step = 0;
+		jc_cal_ctx.cr_done = false;
 
 	// Calculate left analog stick.
 	if (jc_pad->lstick_x <= jc_cal_ctx.clx_max && jc_pad->lstick_x >= jc_cal_ctx.clx_min)
@@ -168,22 +159,14 @@ static bool _jc_poll(gamepad_report_t *rpt)
 		u16 y_raw = (jc_pad->lstick_y - jc_cal_ctx.cly_max) / 7;
 		if (y_raw > 0x7F)
 			y_raw = 0x7F;
-		// Hoag has inverted Y axis.
-		if (!jc_pad->sio_mode)
-			rpt->y = 0x7F - y_raw;
-		else
-			rpt->y = 0x7F + y_raw;
+		rpt->y = 0x7F - y_raw;
 	}
 	else
 	{
 		u16 y_raw = (jc_cal_ctx.cly_min - jc_pad->lstick_y) / 7;
 		if (y_raw > 0x7F)
 			y_raw = 0x7F;
-		// Hoag has inverted Y axis.
-		if (!jc_pad->sio_mode)
-			rpt->y = 0x7F + y_raw;
-		else
-			rpt->y = 0x7F - y_raw;
+		rpt->y = 0x7F + y_raw;
 	}
 
 	// Calculate right analog stick.
@@ -211,22 +194,14 @@ static bool _jc_poll(gamepad_report_t *rpt)
 		u16 y_raw = (jc_pad->rstick_y - jc_cal_ctx.cry_max) / 7;
 		if (y_raw > 0x7F)
 			y_raw = 0x7F;
-		// Hoag has inverted Y axis.
-		if (!jc_pad->sio_mode)
-			rpt->rz = 0x7F - y_raw;
-		else
-			rpt->rz = 0x7F + y_raw;
+		rpt->rz = 0x7F - y_raw;
 	}
 	else
 	{
 		u16 y_raw = (jc_cal_ctx.cry_min - jc_pad->rstick_y) / 7;
 		if (y_raw > 0x7F)
 			y_raw = 0x7F;
-		// Hoag has inverted Y axis.
-		if (!jc_pad->sio_mode)
-			rpt->rz = 0x7F + y_raw;
-		else
-			rpt->rz = 0x7F - y_raw;
+		rpt->rz = 0x7F + y_raw;
 	}
 
 	// Set D-pad.
@@ -337,7 +312,7 @@ static u8 _hid_transfer_start(usb_ctxt_t *usbs, u32 len)
 	u8 status = usb_ops.usb_device_ep1_in_write((u8 *)USB_EP_BULK_IN_BUF_ADDR, len, NULL, USB_XFER_SYNCED_CMD);
 	if (status == USB_ERROR_XFER_ERROR)
 	{
-		usbs->set_text(usbs->label, "#FFDD00 错误：#EP IN传输！");
+		usbs->set_text(usbs->label, "#FFDD00 Error:# EP IN transfer!");
 		if (usb_ops.usbd_flush_endpoint)
 			usb_ops.usbd_flush_endpoint(USB_EP_BULK_IN);
 	}
@@ -386,7 +361,7 @@ int usb_device_gadget_hid(usb_ctxt_t *usbs)
 
 	if (usbs->type == USB_HID_GAMEPAD)
 	{
-		polling_time = 15000;
+		polling_time = 8000;
 		gadget_type = USB_GADGET_HID_GAMEPAD;
 	}
 	else
@@ -395,7 +370,7 @@ int usb_device_gadget_hid(usb_ctxt_t *usbs)
 		gadget_type = USB_GADGET_HID_TOUCHPAD;
 	}
 
-	usbs->set_text(usbs->label, "#C7EA46 状态：#开启USB");
+	usbs->set_text(usbs->label, "#C7EA46 Status:# Started USB");
 
 	if (usb_ops.usb_device_init())
 	{
@@ -403,18 +378,18 @@ int usb_device_gadget_hid(usb_ctxt_t *usbs)
 		return 1;
 	}
 
-	usbs->set_text(usbs->label, "#C7EA46 状态：#等待连接");
+	usbs->set_text(usbs->label, "#C7EA46 Status:# Waiting for connection");
 
 	// Initialize Control Endpoint.
 	if (usb_ops.usb_device_enumerate(gadget_type))
 		goto error;
 
-	usbs->set_text(usbs->label, "#C7EA46 状态：#等待HID上报请求");
+	usbs->set_text(usbs->label, "#C7EA46 Status:# Waiting for HID report request");
 
 	if (usb_ops.usb_device_class_send_hid_report())
 		goto error;
 
-	usbs->set_text(usbs->label, "#C7EA46 状态：#开始HID模拟");
+	usbs->set_text(usbs->label, "#C7EA46 Status:# Started HID emulation");
 
 	u32 timer_sys = get_tmr_ms() + 5000;
 	while (true)
@@ -452,11 +427,11 @@ int usb_device_gadget_hid(usb_ctxt_t *usbs)
 		}
 	}
 
-	usbs->set_text(usbs->label, "#C7EA46 状态：#HID结束");
+	usbs->set_text(usbs->label, "#C7EA46 Status:# HID ended");
 	goto exit;
 
 error:
-	usbs->set_text(usbs->label, "#FFDD00 错误：#超时或取消");
+	usbs->set_text(usbs->label, "#FFDD00 Error:# Timed out or canceled");
 	res = 1;
 
 exit:

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022 CTCaer
+ * Copyright (c) 2018-2019 CTCaer
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -32,15 +32,12 @@
 #define COLOR_HOS_TEAL_LIGHT   (lv_color_hsv_to_rgb(_hue, 100,  72)) // 0x00B78F
 #define COLOR_HOS_TEAL         (lv_color_hsv_to_rgb(_hue, 100,  64)) // 0x00A273
 #define COLOR_HOS_ORANGE       LV_COLOR_HEX(0xFF5500)
+#define COLOR_HOS_BG_DARKER    LV_COLOR_HEX(0x1B1B1B)
+#define COLOR_HOS_BG_DARK      LV_COLOR_HEX(0x222222)
+#define COLOR_HOS_BG           LV_COLOR_HEX(0x2D2D2D)
+#define COLOR_HOS_BG_LIGHT     LV_COLOR_HEX(0x3D3D3D)
+#define COLOR_HOS_LIGHT_BORDER LV_COLOR_HEX(0x4D4D4D)
 #define COLOR_HOS_TXT_WHITE    LV_COLOR_HEX(0xFBFBFB)
-
-#define COLOR_BG_DARKER        LV_COLOR_HEX(theme_bg_color ? (theme_bg_color - 0x121212) : 0x0B0B0B) // 0x1B1B1B.
-#define COLOR_BG_DARK          LV_COLOR_HEX(theme_bg_color ? (theme_bg_color - 0x0B0B0B) : 0x121212) // 0x222222.
-#define COLOR_BG               LV_COLOR_HEX(theme_bg_color)                                // 0x2D2D2D.
-#define COLOR_BG_LIGHT         LV_COLOR_HEX(theme_bg_color ? (theme_bg_color + 0x101010) : 0x2D2D2D) // 0x3D3D3D.
-#define COLOR_BG_LIGHTER       LV_COLOR_HEX(theme_bg_color ? (theme_bg_color + 0x191919) : 0x363636) // 0x464646.
-#define COLOR_LIGHT_BORDER     LV_COLOR_HEX(theme_bg_color ? (theme_bg_color + 0x202020) : 0x3D3D3D) // 0x4D4D4D.
-
 
 /**********************
  *      TYPEDEFS
@@ -60,9 +57,8 @@ static lv_style_t def;
 static lv_style_t sb;
 
 /*Saved input parameters*/
-static uint16_t    _hue;
+static uint16_t _hue;
 static lv_font_t * _font;
-uint32_t theme_bg_color;
 
 /**********************
  *      MACROS
@@ -84,17 +80,18 @@ static void basic_init(void)
 	//def.image.opa = LV_OPA_COVER;
 
 	lv_style_copy(&bg, &def);
-	bg.body.main_color = COLOR_BG;
+	bg.body.main_color = COLOR_HOS_BG;
+	//bg.body.main_color = LV_COLOR_BLACK;
 	bg.body.grad_color = bg.body.main_color;
 	bg.body.radius = 0;
 	bg.body.empty = 1;
 
 	lv_style_copy(&panel, &def);
 	panel.body.radius = DEF_RADIUS;
-	panel.body.main_color = COLOR_BG;
-	panel.body.grad_color = COLOR_BG;
+	panel.body.main_color = COLOR_HOS_BG;
+	panel.body.grad_color = COLOR_HOS_BG;
 	panel.body.border.width = 1;
-	panel.body.border.color = COLOR_LIGHT_BORDER;
+	panel.body.border.color = COLOR_HOS_LIGHT_BORDER;
 	panel.body.border.opa = LV_OPA_COVER;
 	panel.body.shadow.color = COLOR_SHADOW_LIGHT;
 	panel.body.shadow.type = LV_SHADOW_BOTTOM;
@@ -132,7 +129,7 @@ static void btn_init(void)
 	static lv_style_t rel, pr, tgl_rel, tgl_pr, ina;
 
 	lv_style_copy(&rel, &def);
-	rel.body.main_color = COLOR_BG_LIGHT;
+	rel.body.main_color = COLOR_HOS_BG_LIGHT;
 	rel.body.grad_color = rel.body.main_color;
 	rel.body.radius = 6;
 	rel.body.padding.hor = LV_DPI / 3;
@@ -142,7 +139,7 @@ static void btn_init(void)
 	rel.body.shadow.type = LV_SHADOW_BOTTOM;
 	rel.body.shadow.width = 6;
 	rel.body.border.width = 0;
-	rel.body.border.color = COLOR_BG_LIGHT;
+	rel.body.border.color = COLOR_HOS_BG_LIGHT;
 	rel.body.border.part = LV_BORDER_FULL;
 	//rel.text.color = COLOR_HOS_TXT_WHITE;
 
@@ -165,7 +162,7 @@ static void btn_init(void)
 	tgl_pr.body.shadow.width = 0;
 
 	lv_style_copy(&ina, &rel);
-	ina.body.main_color = COLOR_BG_DARK;
+	ina.body.main_color = COLOR_HOS_BG_DARK;
 	ina.body.grad_color = ina.body.main_color;
 	//ina.body.shadow.width = 0;
 	ina.text.color = LV_COLOR_HEX(0x888888);
@@ -210,7 +207,7 @@ static void img_init(void)
 	img_light.image.intense = LV_OPA_80;
 
 	lv_style_copy(&img_dark, &def);
-	img_dark.image.color = COLOR_BG_DARKER;
+	img_dark.image.color = COLOR_HOS_BG_DARKER;
 	img_dark.image.intense = LV_OPA_80;
 
 
@@ -253,7 +250,7 @@ static void bar_init(void)
 	static lv_style_t bar_bg, bar_indic;
 
 	lv_style_copy(&bar_bg, &def);
-	bar_bg.body.main_color = COLOR_LIGHT_BORDER;
+	bar_bg.body.main_color = COLOR_HOS_LIGHT_BORDER;
 	bar_bg.body.grad_color = bar_bg.body.main_color;
 	bar_bg.body.radius = 3;
 	bar_bg.body.border.width = 0;
@@ -539,9 +536,9 @@ static void mbox_init(void)
 	static lv_style_t bg;
 
 	lv_style_copy(&bg, theme.panel);
-	bg.body.main_color = COLOR_BG_LIGHTER;
+	bg.body.main_color = LV_COLOR_HEX(0x464646);
 	bg.body.grad_color = bg.body.main_color;
-	bg.body.shadow.color = COLOR_BG;
+	bg.body.shadow.color = COLOR_HOS_BG;
 	bg.body.shadow.type = LV_SHADOW_FULL;
 	bg.body.shadow.width = 8;
 
@@ -631,7 +628,7 @@ static void list_init(void)
    // pr.text.font = _font;
 
 	lv_style_copy(&tgl_rel, &pr);
-	tgl_rel.body.main_color = COLOR_BG_LIGHT;
+	tgl_rel.body.main_color = COLOR_HOS_BG_LIGHT;
 	tgl_rel.body.grad_color = tgl_rel.body.main_color;
 	//tgl_rel.text.color = lv_color_hsv_to_rgb(_hue, 5, 95);
 	tgl_rel.text.color = COLOR_HOS_TEAL_LIGHTER;
@@ -642,7 +639,7 @@ static void list_init(void)
 	tgl_pr.body.border.width = 0;
 
 	lv_style_copy(&ina, &pr);
-	ina.body.main_color = COLOR_BG_DARK;
+	ina.body.main_color = COLOR_HOS_BG_DARK;
 	ina.body.grad_color = ina.body.main_color;
 
 	theme.list.sb = &sb;
@@ -670,7 +667,7 @@ static void ddlist_init(void)
 	bg.text.color = COLOR_HOS_TURQUOISE;
 
 	lv_style_copy(&sel, &bg);
-	sel.body.main_color = COLOR_BG_LIGHT;
+	sel.body.main_color = COLOR_HOS_BG_LIGHT;
 	sel.body.grad_color = sel.body.main_color;
 
 	theme.ddlist.bg = &bg;
@@ -716,7 +713,7 @@ static void tabview_init(void)
 	indic.body.opa = LV_OPA_0;
 
 	lv_style_copy(&btn_bg, &def);
-	btn_bg.body.main_color = COLOR_BG;
+	btn_bg.body.main_color = COLOR_HOS_BG;
 	btn_bg.body.grad_color = btn_bg.body.main_color;
 	btn_bg.body.radius = 0;
 	btn_bg.body.empty = 1;
@@ -737,7 +734,7 @@ static void tabview_init(void)
 	rel.text.font = _font;
 
 	lv_style_copy(&pr, &def);
-	pr.body.main_color = COLOR_BG_LIGHT;
+	pr.body.main_color = COLOR_HOS_BG_LIGHT;
 	pr.body.grad_color = pr.body.main_color;
 	pr.body.border.width = 0;
 	pr.body.empty = 0;
@@ -753,7 +750,7 @@ static void tabview_init(void)
 	tgl_rel.text.color = COLOR_HOS_TURQUOISE;
 
 	lv_style_copy(&tgl_pr, &def);
-	tgl_pr.body.main_color = COLOR_BG_LIGHT;
+	tgl_pr.body.main_color = COLOR_HOS_BG_LIGHT;
 	tgl_pr.body.grad_color = tgl_pr.body.main_color;
 	tgl_pr.body.border.width = 0;
 	tgl_pr.body.empty = 0;
@@ -800,7 +797,7 @@ static void win_init(void)
 	static lv_style_t header, rel, pr;
 
 	lv_style_copy(&header, &def);
-	header.body.main_color = COLOR_BG;
+	header.body.main_color = COLOR_HOS_BG;
 	header.body.grad_color = header.body.main_color;
 	header.body.radius = 0;
 	header.body.border.width = 0;
@@ -846,11 +843,10 @@ static void win_init(void)
  * @param font pointer to a font (NULL to use the default)
  * @return pointer to the initialized theme
  */
-lv_theme_t * lv_theme_hekate_init(uint32_t bg_color, uint16_t hue, lv_font_t * font)
+lv_theme_t * lv_theme_hekate_init(uint16_t hue, lv_font_t * font)
 {
 	if(font == NULL) font = LV_FONT_DEFAULT;
 
-	theme_bg_color = bg_color;
 	_hue = hue;
 	_font = font;
 

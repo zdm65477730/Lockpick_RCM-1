@@ -97,10 +97,6 @@ _irq_setup:
 	MSR CPSR, #(MODE_IRQ | IRQ | FIQ) /* IRQ mode, IRQ/FIQ disabled */
 	LDR SP, =0x40040000
 
-	/* Setup FIQ stack pointer */
-	MSR CPSR, #(MODE_FIQ | IRQ | FIQ) /* FIQ mode, IRQ/FIQ disabled */
-	LDR SP, =0x40040000
-
 	/* Setup SYS stack pointer */
 	MSR CPSR, #(MODE_SYS | IRQ | FIQ) /* SYSTEM mode, IRQ/FIQ disabled */
 	LDR SP, =0x4003FF00               /* Will be changed later to DRAM */
@@ -115,9 +111,7 @@ _irq_setup:
 	B ipl_main
 	B .
 
-.globl excp_reset
-.type excp_reset, %function
-excp_reset:
+_reset:
 	LDR R0, =EXCP_EN_ADDR
 	LDR R1, =0x30505645 /* EVP0 */
 	STR R1, [R0]        /* EVP0 in EXCP_EN_ADDR */
@@ -135,25 +129,25 @@ _reset_handler:
 	LDR R0, =EXCP_TYPE_ADDR
 	LDR R1, =0x545352   /* RST */
 	STR R1, [R0]        /* RST in EXCP_TYPE_ADDR */
-	B excp_reset
+	B _reset
 
 _undefined_handler:
 	LDR R0, =EXCP_TYPE_ADDR
 	LDR R1, =0x464455   /* UDF */
 	STR R1, [R0]        /* UDF in EXCP_TYPE_ADDR */
-	B excp_reset
+	B _reset
 
 _prefetch_abort_handler:
 	LDR R0, =EXCP_TYPE_ADDR
 	LDR R1, =0x54424150 /* PABT */
 	STR R1, [R0]        /* PABT in EXCP_TYPE_ADDR */
-	B excp_reset
+	B _reset
 
 _data_abort_handler:
 	LDR R0, =EXCP_TYPE_ADDR
 	LDR R1, =0x54424144 /* DABT */
 	STR R1, [R0]        /* DABT in EXCP_TYPE_ADDR */
-	B excp_reset
+	B _reset
 
 .globl irq_enable_cpu_irq_exceptions
 .type irq_enable_cpu_irq_exceptions, %function

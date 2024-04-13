@@ -19,7 +19,6 @@
 
 #include <utils/types.h>
 
-void ccplex_boot_cpu0(u32 entry, bool lock);
-void ccplex_powergate_cpu0();
+void ccplex_boot_cpu0(u32 entry);
 
 #endif

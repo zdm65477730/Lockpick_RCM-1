@@ -24,6 +24,10 @@
 #include <storage/mbr_gpt.h>
 #include <utils/list.h>
 
+sdmmc_t emmc_sdmmc;
+sdmmc_storage_t emmc_storage;
+FATFS emmc_fs;
+
 void nx_emmc_gpt_parse(link_t *gpt, sdmmc_storage_t *storage)
 {
 	gpt_t *gpt_buf = (gpt_t *)calloc(NX_GPT_NUM_BLOCKS, NX_EMMC_BLOCKSIZE);
@@ -89,4 +93,18 @@ int nx_emmc_part_write(sdmmc_storage_t *storage, emmc_part_t *part, u32 sector_o
 		return 0;
 
 	return emummc_storage_write(part->lba_start + sector_off, num_sectors, buf);
+}
+
+void nx_emmc_get_autorcm_masks(u8 *mod0, u8 *mod1)
+{
+	if (fuse_read_hw_state() == FUSE_NX_HW_STATE_PROD)
+	{
+		*mod0 = 0xF7;
+		*mod1 = 0x86;
+	}
+	else
+	{
+		*mod0 = 0x37;
+		*mod1 = 0x84;
+	}
 }

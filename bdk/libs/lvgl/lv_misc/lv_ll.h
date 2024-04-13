@@ -89,9 +89,8 @@ void lv_ll_clear(lv_ll_t * ll_p);
  * @param ll_ori_p pointer to the original (old) linked list
  * @param ll_new_p pointer to the new linked list
  * @param node pointer to a node
- * @return head changed
  */
-bool lv_ll_chg_list(lv_ll_t * ll_ori_p, lv_ll_t * ll_new_p, void * node);
+void lv_ll_chg_list(lv_ll_t * ll_ori_p, lv_ll_t * ll_new_p, void * node);
 
 /**
  * Return with head node of the linked list

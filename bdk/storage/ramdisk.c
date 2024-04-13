@@ -20,7 +20,6 @@
 
 #include "ramdisk.h"
 #include <libs/fatfs/diskio.h>
-#include <libs/fatfs/ff.h>
 #include <mem/heap.h>
 #include <utils/types.h>
 
@@ -28,11 +27,10 @@
 
 static u32 disk_size = 0;
 
-int ram_disk_init(void *ram_fs, u32 ramdisk_size)
+int ram_disk_init(FATFS *ram_fs, u32 ramdisk_size)
 {
 	int res = 0;
 	disk_size = ramdisk_size;
-	FATFS *ram_fatfs = (FATFS *)ram_fs;
 
 	// If ramdisk is not raw, format it.
 	if (ram_fs)
@@ -51,7 +49,7 @@ int ram_disk_init(void *ram_fs, u32 ramdisk_size)
 
 		// Mount ramdisk.
 		if (!res)
-			res = f_mount(ram_fatfs, "ram:", 1);
+			res = f_mount(ram_fs, "ram:", 1);
 
 		free(buf);
 	}

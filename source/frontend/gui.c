@@ -17,9 +17,10 @@
 #include "../gfx/gfx.h"
 #include <mem/heap.h>
 #include <rtc/max77620-rtc.h>
-#include <storage/nx_sd.h>
+#include <storage/sd.h>
 #include <utils/util.h>
 #include <utils/sprintf.h>
+#include <soc/timer.h>
 
 #include <string.h>
 

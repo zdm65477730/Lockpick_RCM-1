@@ -33,8 +33,7 @@
 #include <soc/bpmp.h>
 #include <soc/hw_init.h>
 #include "storage/emummc.h"
-#include "storage/nx_emmc.h"
-#include <storage/nx_sd.h>
+#include <storage/sd.h>
 #include <storage/sdmmc.h>
 #include <utils/btn.h>
 #include <utils/dirlist.h>
@@ -45,6 +44,8 @@
 #include "keys/keys.h"
 
 #define SD_STORE_PATH "sd:/atmosphere/automatic_backups/dumps"
+
+const u32 colors[6] = {COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_BLUE, COLOR_VIOLET};
 
 hekate_config h_cfg;
 boot_cfg_t __attribute__((section ("._boot_cfg"))) b_cfg;

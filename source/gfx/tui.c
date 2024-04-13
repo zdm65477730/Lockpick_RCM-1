@@ -21,8 +21,11 @@
 #include <power/max17050.h>
 #include <utils/btn.h>
 #include <utils/util.h>
+#include <soc/timer.h>
 
 extern hekate_config h_cfg;
+
+extern const u32 colors[6];
 
 void tui_sbar(bool force_update)
 {

@@ -40,18 +40,20 @@
 #include "../storage/emummc.h"
 #include "../storage/nx_emmc.h"
 #include "../storage/nx_emmc_bis.h"
-#include <storage/nx_sd.h>
+#include <storage/sd.h>
 #include <storage/sdmmc.h>
 #include <utils/btn.h>
 #include <utils/list.h>
 #include <utils/sprintf.h>
 #include <utils/util.h>
+#include <soc/timer.h>
 
 #include "key_sources.inl"
 
 #include <string.h>
 
 extern hekate_config h_cfg;
+extern const u32 colors[6];
 
 static u32 _key_count = 0, _titlekey_count = 0;
 static u32 start_time, end_time;
@@ -61,9 +63,12 @@ static void _save_key(const char *name, const void *data, u32 len, char *outbuf)
     if (!key_exists(data))
         return;
     u32 pos = strlen(outbuf);
-    pos += s_printf(&outbuf[pos], "%s = ", name);
-    for (u32 i = 0; i < len; i++)
-        pos += s_printf(&outbuf[pos], "%02x", *(u8*)(data + i));
+    s_printf(&outbuf[pos], "%s = ", name);
+    pos += strlen(&outbuf[pos]);
+    for (u32 i = 0; i < len; i++) {
+        s_printf(&outbuf[pos], "%02x", *(u8*)(data + i));
+        pos += strlen(&outbuf[pos]);
+    }
     s_printf(&outbuf[pos], "\n");
     _key_count++;
 }
@@ -157,7 +162,7 @@ static void _derive_keyblob_keys(key_storage_t *keys) {
 
         // Verify keyblob is not corrupt
         se_aes_key_set(KS_AES_CMAC, keys->keyblob_mac_key[i], sizeof(keys->keyblob_mac_key[i]));
-        se_aes_cmac(KS_AES_CMAC, keyblob_mac, sizeof(keyblob_mac), current_keyblob->iv, sizeof(current_keyblob->iv) + sizeof(keyblob_t));
+        se_aes_cmac_128(KS_AES_CMAC, keyblob_mac, current_keyblob->iv, sizeof(current_keyblob->iv) + sizeof(keyblob_t));
         if (memcmp(current_keyblob->cmac, keyblob_mac, sizeof(keyblob_mac)) != 0) {
             EPRINTFARGS("Keyblob %x corrupt.", i);
             continue;
@@ -518,13 +523,18 @@ int save_mariko_partial_keys(const char *keyfile_path, u32 start, u32 count, boo
             continue;
         }
 
-        pos += s_printf(&text_buffer[pos], "%d\n", ks);
+        s_printf(&text_buffer[pos], "%d\n", ks);
+        pos += strlen(&text_buffer[pos]);
         for (u32 i = 0; i < 4; i++) {
-            for (u32 j = 0; j < SE_KEY_128_SIZE; j++)
-                pos += s_printf(&text_buffer[pos], "%02x", data[i * SE_KEY_128_SIZE + j]);
-            pos += s_printf(&text_buffer[pos], " ");
+            for (u32 j = 0; j < SE_KEY_128_SIZE; j++) {
+                s_printf(&text_buffer[pos], "%02x", data[i * SE_KEY_128_SIZE + j]);
+                pos += strlen(&text_buffer[pos]);
+            }
+            s_printf(&text_buffer[pos], " ");
+            pos += strlen(&text_buffer[pos]);
         }
-        pos += s_printf(&text_buffer[pos], "\n");
+        s_printf(&text_buffer[pos], "\n");
+        pos += strlen(&text_buffer[pos]);
     }
     free(data);
 
